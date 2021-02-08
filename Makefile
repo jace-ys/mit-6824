@@ -1,6 +1,6 @@
-# This is the Makefile helping you submit the labs.  
-# Just create 6.824/api.key with your API key in it, 
-# and submit your lab with the following command: 
+# This is the Makefile helping you submit the labs.
+# Just create 6.824/api.key with your API key in it,
+# and submit your lab with the following command:
 #     $ make [lab1|lab2a|lab2b|lab2c|lab3a|lab3b|lab4a|lab4b]
 
 LABS=" lab1 lab2a lab2b lab2c lab3a lab3b lab4a lab4b "
@@ -41,7 +41,25 @@ LABS=" lab1 lab2a lab2b lab2c lab3a lab3b lab4a lab4b "
 		echo "Bad target $@. Usage: make [$(LABS)]"; \
 	fi
 
-.PHONY: check-%
+.PHONY: check-% clean lab1
+
 check-%:
 	@echo "Checking that your submission builds correctly..."
 	@./.check-build git://g.csail.mit.edu/6.824-golabs-2020 $(patsubst check-%,%,$@)
+
+clean:
+	go clean ./...
+	rm -rf bin
+	rm -rf tmp
+
+lab1:
+	mkdir -p bin/plugins
+	go build -race -buildmode=plugin -o bin/plugins ./src/mrapps/wc.go
+	go build -race -buildmode=plugin -o bin/plugins ./src/mrapps/indexer.go
+	go build -race -buildmode=plugin -o bin/plugins ./src/mrapps/mtiming.go
+	go build -race -buildmode=plugin -o bin/plugins ./src/mrapps/rtiming.go
+	go build -race -buildmode=plugin -o bin/plugins ./src/mrapps/crash.go
+	go build -race -buildmode=plugin -o bin/plugins ./src/mrapps/nocrash.go
+	go build -race -o bin ./src/main/mrmaster.go
+	go build -race -o bin ./src/main/mrworker.go
+	go build -race -o bin ./src/main/mrsequential.go
