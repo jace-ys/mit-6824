@@ -1,83 +1,71 @@
 package mr
 
-import "fmt"
-import "log"
-import "net/rpc"
-import "hash/fnv"
+import (
+	"fmt"
+	"hash/fnv"
+	"log"
+	"net/rpc"
+)
 
-//
-// Map functions return a slice of KeyValue.
-//
+type MapFunc = func(filename string, contents string) []KeyValue
+type ReduceFunc = func(key string, values []string) string
+
 type KeyValue struct {
 	Key   string
 	Value string
 }
 
-//
-// use ihash(key) % NReduce to choose the reduce
-// task number for each KeyValue emitted by Map.
-//
+// Use ihash(key) % NReduce to choose the reduce task number for each KeyValue emitted by Map
 func ihash(key string) int {
 	h := fnv.New32a()
 	h.Write([]byte(key))
 	return int(h.Sum32() & 0x7fffffff)
 }
 
-//
-// main/mrworker.go calls this function.
-//
-func Worker(mapf func(string, string) []KeyValue,
-	reducef func(string, []string) string) {
-
-	// Your worker implementation here.
-
-	// uncomment to send the Example RPC to the master.
-	// CallExample()
-
+type Worker struct {
+	mapFunc    MapFunc
+	reduceFunc ReduceFunc
 }
 
-//
-// example function to show how to make an RPC call to the master.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
-func CallExample() {
+func NewWorker(mapFunc MapFunc, reduceFunc ReduceFunc) *Worker {
+	return &Worker{
+		mapFunc:    mapFunc,
+		reduceFunc: reduceFunc,
+	}
+}
 
-	// declare an argument structure.
-	args := ExampleArgs{}
+func (w *Worker) Start() {
+	if err := w.CallExample(); err != nil {
+		log.Println(err)
+	}
+}
 
-	// fill in the argument(s).
-	args.X = 99
+func (w *Worker) CallExample() error {
+	args := ExampleArgs{
+		X: 99,
+	}
 
-	// declare a reply structure.
 	reply := ExampleReply{}
 
-	// send the RPC request, wait for the reply.
-	call("Master.Example", &args, &reply)
+	if err := w.callRPC("Master.Example", &args, &reply); err != nil {
+		return fmt.Errorf("rpc call failed: %w", err)
+	}
 
-	// reply.Y should be 100.
-	fmt.Printf("reply.Y %v\n", reply.Y)
+	fmt.Println("Y:", reply.Y)
+	return nil
 }
 
-//
-// send an RPC request to the master, wait for the response.
-// usually returns true.
-// returns false if something goes wrong.
-//
-func call(rpcname string, args interface{}, reply interface{}) bool {
-	// c, err := rpc.DialHTTP("tcp", "127.0.0.1"+":1234")
+func (w *Worker) callRPC(rpcname string, args interface{}, reply interface{}) error {
 	sockname := masterSock()
 	c, err := rpc.DialHTTP("unix", sockname)
 	if err != nil {
-		log.Fatal("dialing:", err)
+		return err
 	}
 	defer c.Close()
 
-	err = c.Call(rpcname, args, reply)
-	if err == nil {
-		return true
+	if err := c.Call(rpcname, args, reply); err != nil {
+		return err
 	}
 
-	fmt.Println(err)
-	return false
+	return nil
 }

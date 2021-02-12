@@ -137,7 +137,7 @@ wait ; wait
 
 # generate the correct output
 bin/mrsequential bin/plugins/nocrash.so data/*.txt || exit 1
-sort mr-out-0 > bin/mr-correct-crash.txt
+sort mr-out-0 > tmp/mr-correct-crash.txt
 rm -f mr-out*
 
 echo '***' Starting crash test.
@@ -150,7 +150,7 @@ sleep 1
 timeout -k 2s 180s bin/mrworker bin/plugins/crash.so &
 
 # mimic rpc.go's masterSock()
-SOCKNAME=tmp/824-mr-`id -u`
+SOCKNAME=824-mr-`id -u`
 
 ( while [ -e $SOCKNAME -a ! -f tmp/mr-done ]
   do

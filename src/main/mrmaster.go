@@ -1,17 +1,10 @@
 package main
 
-//
-// start the master process, which is implemented
-// in ../mr/master.go
-//
-// go run mrmaster.go pg*.txt
-//
-// Please do not change this file.
-//
-
 import (
-	"fmt"
+	"log"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"../mr"
@@ -19,14 +12,40 @@ import (
 
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: mrmaster inputfiles...\n")
-		os.Exit(1)
+		log.Fatal("Usage: mrmaster [files]")
 	}
 
-	m := mr.MakeMaster(os.Args[1:], 10)
-	for m.Done() == false {
-		time.Sleep(time.Second)
-	}
+	master := mr.NewMaster(os.Args[1:], 10)
+	go master.Start()
 
-	time.Sleep(time.Second)
+	done := make(chan bool)
+	sigc := make(chan os.Signal)
+
+	go func() {
+		for {
+			if master.IsDone() {
+				log.Println("MapReduce tasks finished successfully")
+				done <- true
+			}
+
+			time.Sleep(time.Second)
+		}
+	}()
+
+	signal.Notify(sigc, os.Interrupt, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	go func() {
+		<-sigc
+
+		log.Println("Terminating process...")
+		done <- true
+
+		<-sigc
+		close(sigc)
+		log.Fatalf("Abort!")
+	}()
+
+	<-done
+	master.Shutdown()
+
+	log.Println("Master shutdown successfully")
 }

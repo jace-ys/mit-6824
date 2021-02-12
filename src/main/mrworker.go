@@ -1,51 +1,52 @@
 package main
 
-//
-// start a worker process, which is implemented
-// in ../mr/worker.go. typically there will be
-// multiple worker processes, talking to one master.
-//
-// go run mrworker.go wc.so
-//
-// Please do not change this file.
-//
+import (
+	"fmt"
+	"log"
+	"os"
+	"plugin"
 
-import "../mr"
-import "plugin"
-import "os"
-import "fmt"
-import "log"
+	"../mr"
+)
 
 func main() {
 	if len(os.Args) != 2 {
-		fmt.Fprintf(os.Stderr, "Usage: mrworker xxx.so\n")
-		os.Exit(1)
+		log.Fatal("Usage: mrworker [plugin]")
 	}
 
-	mapf, reducef := loadPlugin(os.Args[1])
+	mapFunc, reduceFunc, err := loadPlugin(os.Args[1])
+	if err != nil {
+		log.Fatalf("Failed to load plugin: %s", err)
+	}
 
-	mr.Worker(mapf, reducef)
+	worker := mr.NewWorker(mapFunc, reduceFunc)
+	worker.Start()
 }
 
-//
-// load the application Map and Reduce functions
-// from a plugin file, e.g. ../mrapps/wc.so
-//
-func loadPlugin(filename string) (func(string, string) []mr.KeyValue, func(string, []string) string) {
+// Load a plugin's Map and Reduce functions
+func loadPlugin(filename string) (mr.MapFunc, mr.ReduceFunc, error) {
 	p, err := plugin.Open(filename)
 	if err != nil {
-		log.Fatalf("cannot load plugin %v", filename)
+		return nil, nil, err
 	}
-	xmapf, err := p.Lookup("Map")
-	if err != nil {
-		log.Fatalf("cannot find Map in %v", filename)
-	}
-	mapf := xmapf.(func(string, string) []mr.KeyValue)
-	xreducef, err := p.Lookup("Reduce")
-	if err != nil {
-		log.Fatalf("cannot find Reduce in %v", filename)
-	}
-	reducef := xreducef.(func(string, []string) string)
 
-	return mapf, reducef
+	m, err := p.Lookup("Map")
+	if err != nil {
+		return nil, nil, err
+	}
+	mapFunc, ok := m.(mr.MapFunc)
+	if !ok {
+		return nil, nil, fmt.Errorf("invalid MapFunc: %v", m)
+	}
+
+	r, err := p.Lookup("Reduce")
+	if err != nil {
+		return nil, nil, err
+	}
+	reduceFunc, ok := r.(mr.ReduceFunc)
+	if !ok {
+		return nil, nil, fmt.Errorf("invalid ReduceFunc: %v", m)
+	}
+
+	return mapFunc, reduceFunc, nil
 }

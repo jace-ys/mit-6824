@@ -1,68 +1,49 @@
 package mr
 
 import (
-	"log"
+	"fmt"
 	"net"
 	"net/http"
 	"net/rpc"
-	"os"
 )
 
 type Master struct {
-	// Your definitions here.
-
+	srv   http.Server
+	count int
 }
 
-// Your code here -- RPC handlers for the worker to call.
-
-//
-// an example RPC handler.
-//
-// the RPC argument and reply types are defined in rpc.go.
-//
+// RPC handlers
 func (m *Master) Example(args *ExampleArgs, reply *ExampleReply) error {
 	reply.Y = args.X + 1
 	return nil
 }
 
-//
-// start a thread that listens for RPCs from worker.go
-//
-func (m *Master) server() {
+func NewMaster(files []string, nReduce int) *Master {
+	return &Master{
+		srv:   http.Server{},
+		count: 0,
+	}
+}
+
+func (m *Master) Start() error {
 	rpc.Register(m)
 	rpc.HandleHTTP()
-	//l, e := net.Listen("tcp", ":1234")
+
 	sockname := masterSock()
-	os.Remove(sockname)
-	l, e := net.Listen("unix", sockname)
-	if e != nil {
-		log.Fatal("listen error:", e)
+	l, err := net.Listen("unix", sockname)
+	if err != nil {
+		return fmt.Errorf("listen failed: %w", err)
 	}
-	go http.Serve(l, nil)
+	defer l.Close()
+
+	return m.srv.Serve(l)
 }
 
-//
-// main/mrmaster.go calls Done() periodically to find out
-// if the entire job has finished.
-//
-func (m *Master) Done() bool {
-	ret := true
-
-	// Your code here.
-
-	return ret
+func (m *Master) Shutdown() error {
+	return m.srv.Close()
 }
 
-//
-// create a Master.
-// main/mrmaster.go calls this function.
-// nReduce is the number of reduce tasks to use.
-//
-func MakeMaster(files []string, nReduce int) *Master {
-	m := Master{}
-
-	// Your code here.
-
-	m.server()
-	return &m
+func (m *Master) IsDone() bool {
+	m.count++
+	return m.count > 5
 }
