@@ -36,13 +36,15 @@ func main() {
 	for _, filename := range os.Args[2:] {
 		file, err := os.Open(filename)
 		if err != nil {
-			log.Fatalf("cannot open %v", filename)
+			log.Fatalf("Failed to open %s: %w", filename, err)
 		}
+
 		content, err := ioutil.ReadAll(file)
 		if err != nil {
-			log.Fatalf("cannot read %v", filename)
+			log.Fatalf("Failed to read %s: %w", filename, err)
 		}
 		file.Close()
+
 		kva := mapFunc(filename, string(content))
 		intermediate = append(intermediate, kva...)
 	}
@@ -56,7 +58,10 @@ func main() {
 	sort.Sort(ByKey(intermediate))
 
 	oname := "mr-out-0"
-	ofile, _ := os.Create(oname)
+	ofile, err := os.Create(oname)
+	if err != nil {
+		log.Fatalf("Failed to create file %s: %w", oname, err)
+	}
 
 	//
 	// call Reduce on each distinct key in intermediate[],
@@ -68,10 +73,12 @@ func main() {
 		for j < len(intermediate) && intermediate[j].Key == intermediate[i].Key {
 			j++
 		}
+
 		values := []string{}
 		for k := i; k < j; k++ {
 			values = append(values, intermediate[k].Value)
 		}
+
 		output := reduceFunc(intermediate[i].Key, values)
 
 		// this is the correct format for each line of Reduce output.

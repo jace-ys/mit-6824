@@ -2,8 +2,8 @@
 
 clean:
 	go clean ./...
-	rm -rf bin
-	rm -rf tmp
+	rm -rf bin tmp
+	rm -f mr-*-* mr-out-* 824-mr-*
 
 lab1:
 	mkdir -p bin/plugins

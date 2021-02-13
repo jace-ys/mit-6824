@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/signal"
 	"plugin"
+	"syscall"
 
 	"../mr"
 )
@@ -14,13 +16,43 @@ func main() {
 		log.Fatal("Usage: mrworker [plugin]")
 	}
 
+	log.SetPrefix("[WORKER] ")
+
 	mapFunc, reduceFunc, err := loadPlugin(os.Args[1])
 	if err != nil {
 		log.Fatalf("Failed to load plugin: %s", err)
 	}
 
-	worker := mr.NewWorker(mapFunc, reduceFunc)
-	worker.Start()
+	worker, err := mr.NewWorker(mapFunc, reduceFunc)
+	if err != nil {
+		log.Fatalf("Failed to initialize worker: %s", err)
+	}
+
+	done := make(chan bool)
+	sigc := make(chan os.Signal)
+
+	go func() {
+		if err := worker.Process(); err != nil {
+			log.Fatalf("Failed to process tasks: %s", err)
+		}
+
+		done <- true
+	}()
+
+	signal.Notify(sigc, os.Interrupt, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	go func() {
+		<-sigc
+
+		log.Println("Terminating process...")
+		done <- true
+
+		<-sigc
+		close(sigc)
+		log.Println("Abort!")
+	}()
+
+	<-done
+	log.Println("Worker process finished")
 }
 
 // Load a plugin's Map and Reduce functions

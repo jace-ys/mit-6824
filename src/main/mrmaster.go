@@ -15,6 +15,8 @@ func main() {
 		log.Fatal("Usage: mrmaster [files]")
 	}
 
+	log.SetPrefix("[MASTER] ")
+
 	master := mr.NewMaster(os.Args[1:], 10)
 	go master.Start()
 
@@ -41,11 +43,10 @@ func main() {
 
 		<-sigc
 		close(sigc)
-		log.Fatalf("Abort!")
+		log.Println("Abort!")
 	}()
 
 	<-done
 	master.Shutdown()
-
 	log.Println("Master shutdown successfully")
 }

@@ -4,7 +4,10 @@
 # basic map-reduce test
 #
 
-# run the test in a fresh sub-directory.
+# initialize failure count
+failed_any=0
+
+# run the test in a fresh subdirectory
 rm -rf tmp && mkdir tmp
 
 # compile code
@@ -13,30 +16,22 @@ make lab1 || exit 1
 # generate the correct output
 bin/mrsequential bin/plugins/wc.so data/*.txt || exit 1
 sort mr-out-0 > tmp/mr-correct-wc.txt
-rm -f mr-out*
+rm mr-out-0
 
 echo '***' Starting wc test.
 
 timeout -k 2s 180s bin/mrmaster data/*.txt &
 
-# give the master time to create the sockets.
+# give the master time to create the sockets
 sleep 1
 
-# start multiple workers.
+# start multiple workers
 timeout -k 2s 180s bin/mrworker bin/plugins/wc.so &
 timeout -k 2s 180s bin/mrworker bin/plugins/wc.so &
 timeout -k 2s 180s bin/mrworker bin/plugins/wc.so &
 
-# wait for one of the processes to exit.
-# under bash, this waits for all processes,
-# including the master.
-wait
-
-
-# the master or a worker has exited. since workers are required
-# to exit when a job is completely finished, and not before,
-# that means the job has finished.
-failed_any=0
+# wait for remaining workers and master to exit
+wait; wait; wait
 
 sort mr-out* | grep . > tmp/mr-wc-all
 if cmp tmp/mr-wc-all tmp/mr-correct-wc.txt
@@ -48,26 +43,23 @@ else
   failed_any=1
 fi
 
-# wait for remaining workers and master to exit.
-wait ; wait ; wait
+rm -f mr-out-*
 
-
-# now indexer
-rm -rf mr-*
 
 # generate the correct output
 bin/mrsequential bin/plugins/indexer.so data/*.txt || exit 1
 sort mr-out-0 > tmp/mr-correct-indexer.txt
-rm -f mr-out*
+rm mr-out-0
 
 echo '***' Starting indexer test.
 
 timeout -k 2s 180s bin/mrmaster data/*.txt &
 sleep 1
 
-# start multiple workers
 timeout -k 2s 180s bin/mrworker bin/plugins/indexer.so &
 timeout -k 2s 180s bin/mrworker bin/plugins/indexer.so
+
+wait; wait
 
 sort mr-out* | grep . > tmp/mr-indexer-all
 if cmp tmp/mr-indexer-all tmp/mr-correct-indexer.txt
@@ -79,18 +71,18 @@ else
   failed_any=1
 fi
 
-wait ; wait
+rm -f mr-out-*
 
 
 echo '***' Starting map parallelism test.
-
-rm -f mr-out* mr-worker*
 
 timeout -k 2s 180s bin/mrmaster data/*.txt &
 sleep 1
 
 timeout -k 2s 180s bin/mrworker bin/plugins/mtiming.so &
 timeout -k 2s 180s bin/mrworker bin/plugins/mtiming.so
+
+wait; wait
 
 NT=`cat mr-out* | grep '^times-' | wc -l | sed 's/ //g'`
 if [ "$NT" != "2" ]
@@ -109,18 +101,18 @@ else
   failed_any=1
 fi
 
-wait ; wait
+rm -f mr-out-* mr-worker*
 
 
 echo '***' Starting reduce parallelism test.
-
-rm -f mr-out* mr-worker*
 
 timeout -k 2s 180s bin/mrmaster data/*.txt &
 sleep 1
 
 timeout -k 2s 180s bin/mrworker bin/plugins/rtiming.so &
 timeout -k 2s 180s bin/mrworker bin/plugins/rtiming.so
+
+wait; wait
 
 NT=`cat mr-out* | grep '^[a-z] 2' | wc -l | sed 's/ //g'`
 if [ "$NT" -lt "2" ]
@@ -132,25 +124,22 @@ else
   echo '---' reduce parallelism test: PASS
 fi
 
-wait ; wait
+rm -f mr-out-* mr-worker*
 
 
 # generate the correct output
 bin/mrsequential bin/plugins/nocrash.so data/*.txt || exit 1
 sort mr-out-0 > tmp/mr-correct-crash.txt
-rm -f mr-out*
+rm mr-out-0
 
 echo '***' Starting crash test.
 
-rm -f tmp/mr-done
+SOCKNAME=824-mr-`id -u`
+
 (timeout -k 2s 180s bin/mrmaster data/*.txt ; touch tmp/mr-done ) &
 sleep 1
 
-# start multiple workers
 timeout -k 2s 180s bin/mrworker bin/plugins/crash.so &
-
-# mimic rpc.go's masterSock()
-SOCKNAME=824-mr-`id -u`
 
 ( while [ -e $SOCKNAME -a ! -f tmp/mr-done ]
   do
@@ -170,11 +159,8 @@ do
   sleep 1
 done
 
-wait
-wait
-wait
+wait; wait; wait
 
-rm $SOCKNAME
 sort mr-out* | grep . > tmp/mr-crash-all
 if cmp tmp/mr-crash-all tmp/mr-correct-crash.txt
 then
@@ -184,6 +170,9 @@ else
   echo '---' crash test: FAIL
   failed_any=1
 fi
+
+rm -f mr-out-*
+
 
 if [ $failed_any -eq 0 ]; then
     echo '***' PASSED ALL TESTS

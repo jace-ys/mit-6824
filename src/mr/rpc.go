@@ -3,15 +3,45 @@ package mr
 import (
 	"os"
 	"strconv"
+	"time"
+)
+
+type Operation string
+
+const (
+	OpWait     Operation = "Wait"
+	OpMap                = "Map"
+	OpReduce             = "Reduce"
+	OpShutdown           = "Shutdown"
 )
 
 // RPC definitions
-type ExampleArgs struct {
-	X int
+type RegisterArgs struct {
 }
 
-type ExampleReply struct {
-	Y int
+type RegisterReply struct {
+	WorkerID int
+}
+
+type GetTaskArgs struct {
+	WorkerID int
+}
+
+type GetTaskReply struct {
+	TaskID      int
+	Op          Operation
+	LeaseExpiry time.Time
+	Filename    string
+	Buckets     int
+}
+
+type TaskDoneArgs struct {
+	WorkerID int
+	TaskID   int
+	Op       Operation
+}
+
+type TaskDoneReply struct {
 }
 
 // Cook up a unique-ish UNIX-domain socket name in the local directory
