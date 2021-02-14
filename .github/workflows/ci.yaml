@@ -1,0 +1,36 @@
+name: ci
+
+on: push
+
+jobs:
+  lint:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "1.15"
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-mit-6824-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-mit-6824-
+      - name: Run linter
+        run: |
+          go fmt ./...
+          git diff --exit-code --name-only
+
+  lab1:
+    runs-on: ubuntu-20.04
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-go@v2
+        with:
+          go-version: "1.15"
+      - uses: actions/cache@v1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-mit-6824-${{ hashFiles('go.sum') }}
+          restore-keys: ${{ runner.os }}-mit-6824-
+      - name: Run test
+        run: sh ./test-mr.sh
