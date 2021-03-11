@@ -29,7 +29,7 @@ func main() {
 	}
 
 	done := make(chan bool)
-	sigc := make(chan os.Signal)
+	sigc := make(chan os.Signal, 1)
 
 	go func() {
 		if err := worker.Process(); err != nil {
@@ -39,7 +39,7 @@ func main() {
 		done <- true
 	}()
 
-	signal.Notify(sigc, os.Interrupt, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	signal.Notify(sigc, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigc
 

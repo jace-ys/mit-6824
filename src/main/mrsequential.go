@@ -43,7 +43,10 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to read %s: %w", filename, err)
 		}
-		file.Close()
+
+		if err := file.Close(); err != nil {
+			log.Fatalf("Failed to close %s: %s", filename, err)
+		}
 
 		kva := mapFunc(filename, string(content))
 		intermediate = append(intermediate, kva...)
@@ -87,7 +90,9 @@ func main() {
 		i = j
 	}
 
-	ofile.Close()
+	if err := ofile.Close(); err != nil {
+		log.Fatalf("Failed to close file %s: %w", ofile.Name, err)
+	}
 }
 
 // Load a plugin's Map and Reduce functions

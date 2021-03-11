@@ -21,7 +21,7 @@ func main() {
 	go master.Start()
 
 	done := make(chan bool)
-	sigc := make(chan os.Signal)
+	sigc := make(chan os.Signal, 1)
 
 	go func() {
 		for {
@@ -34,7 +34,7 @@ func main() {
 		}
 	}()
 
-	signal.Notify(sigc, os.Interrupt, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	signal.Notify(sigc, os.Interrupt, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		<-sigc
 

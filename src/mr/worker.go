@@ -180,7 +180,9 @@ func (w *Worker) doMap(id int, filename string, buckets int) error {
 		if err := enc.Encode(&kvs); err != nil {
 			return fmt.Errorf("failed to encode file %s: %w", outfile, err)
 		}
-		tmpfile.Close()
+		if err := tmpfile.Close(); err != nil {
+			return fmt.Errorf("failed to close temp file %s: %w", tmpfile.Name(), err)
+		}
 
 		if err := os.Rename(tmpfile.Name(), outfile); err != nil {
 			return fmt.Errorf("failed to rename temp file %s: %w", tmpfile.Name(), err)
@@ -202,7 +204,6 @@ func (w *Worker) doReduce(id int) error {
 		if err != nil {
 			return fmt.Errorf("failed to open file %s: %w", filename, err)
 		}
-		defer file.Close()
 
 		var kvs []KeyValue
 		if err := json.NewDecoder(file).Decode(&kvs); err != nil {
@@ -211,6 +212,10 @@ func (w *Worker) doReduce(id int) error {
 			}
 
 			return fmt.Errorf("failed to decode file %s: %w", file.Name(), err)
+		}
+
+		if err := file.Close(); err != nil {
+			return fmt.Errorf("failed to close file %s: %w", file.Name(), err)
 		}
 
 		for _, kv := range kvs {
@@ -231,7 +236,9 @@ func (w *Worker) doReduce(id int) error {
 			return fmt.Errorf("failed to write to file %s: %w", tmpfile.Name(), err)
 		}
 	}
-	tmpfile.Close()
+	if err := tmpfile.Close(); err != nil {
+		return fmt.Errorf("failed to close temp file %s: %w", tmpfile.Name(), err)
+	}
 
 	if err := os.Rename(tmpfile.Name(), outfile); err != nil {
 		return fmt.Errorf("failed to rename temp file %s: %w", tmpfile.Name(), err)
